@@ -1,3 +1,13 @@
+---
+title: YouTube RAG Chatbot
+emoji: 🎬
+colorFrom: purple
+colorTo: pink
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # YouTube RAG Chatbot 🎬🤖
 
 A Retrieval-Augmented Generation (RAG) chatbot that lets you ask questions about any YouTube video. It fetches the video's transcript, chunks and embeds it, then uses an LLM to answer questions grounded strictly in the transcript.

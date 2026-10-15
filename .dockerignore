@@ -1,0 +1,15 @@
+.env
+cookies.txt
+.git
+.gitignore
+__pycache__
+*.pyc
+venv/
+.venv/
+.vscode/
+.idea/
+*.ipynb
+.ipynb_checkpoints/
+render.yaml
+Procfile
+build.sh
