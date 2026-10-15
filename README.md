@@ -3,8 +3,7 @@ title: YouTube RAG Chatbot
 emoji: 🎬
 colorFrom: purple
 colorTo: pink
-sdk: docker
-app_port: 7860
+sdk: gradio
 pinned: false
 ---
 

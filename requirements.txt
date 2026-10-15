@@ -8,4 +8,4 @@ langchain-huggingface
 sentence-transformers
 faiss-cpu
 youtube-transcript-api
-gunicorn
+gradio
