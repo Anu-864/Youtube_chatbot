@@ -16,11 +16,17 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 # Global dictionary to cache vector stores
 vector_stores = {}
 
-# Initialize embeddings model (lightweight model for free-tier deployment)
-embeddings = HuggingFaceEmbeddings(
-    model_name='all-MiniLM-L6-v2',
-    model_kwargs={'device': 'cpu'}
-)
+# Lazy-load embeddings model (so gunicorn can bind the port immediately)
+_embeddings = None
+
+def get_embeddings():
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(
+            model_name='all-MiniLM-L6-v2',
+            model_kwargs={'device': 'cpu'}
+        )
+    return _embeddings
 
 @app.route('/')
 def index():
@@ -76,7 +82,7 @@ def process_video():
         docs = text_splitter.create_documents([transcript])
         
         # Create vector store
-        vector_store = FAISS.from_documents(docs, embeddings)
+        vector_store = FAISS.from_documents(docs, get_embeddings())
         
         # Cache
         vector_stores[video_id] = vector_store
