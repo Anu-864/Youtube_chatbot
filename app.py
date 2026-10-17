@@ -11,6 +11,17 @@ from langchain_groq import ChatGroq
 
 load_dotenv()
 
+# Restore cookies.txt from environment variable on Render if provided
+_cookie_data_b64 = os.environ.get('YOUTUBE_COOKIES_BASE64')
+_cookie_data_text = os.environ.get('YOUTUBE_COOKIES_TEXT')
+if _cookie_data_b64:
+    import base64
+    with open('cookies.txt', 'wb') as f:
+        f.write(base64.b64decode(_cookie_data_b64))
+elif _cookie_data_text:
+    with open('cookies.txt', 'w', encoding='utf-8') as f:
+        f.write(_cookie_data_text)
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
@@ -59,7 +70,7 @@ def process_video():
             yt = YouTubeTranscriptApi(proxy_config=proxy_config)
             transcript_list = yt.list(video_id)
         except Exception as e:
-            if "blocking requests" in str(e) and os.path.exists('cookies.txt'):
+            if os.path.exists('cookies.txt'):
                 import requests, http.cookiejar
                 session = requests.Session()
                 cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
