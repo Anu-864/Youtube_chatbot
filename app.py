@@ -11,8 +11,14 @@ from langchain_groq import ChatGroq
 
 load_dotenv()
 
+def find_cookies_path():
+    for p in ['cookies.txt', '/etc/secrets/cookies.txt']:
+        if os.path.exists(p):
+            return p
+    return None
+
 def ensure_cookies_file():
-    if not os.path.exists('cookies.txt'):
+    if not find_cookies_path():
         b64 = os.environ.get('YOUTUBE_COOKIES_BASE64')
         raw = os.environ.get('YOUTUBE_COOKIES_TEXT')
         if b64:
@@ -26,11 +32,12 @@ def ensure_cookies_file():
 
 def get_cookie_session():
     ensure_cookies_file()
-    if os.path.exists('cookies.txt'):
+    path = find_cookies_path()
+    if path:
         try:
             import requests, http.cookiejar
             session = requests.Session()
-            cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
+            cookie_jar = http.cookiejar.MozillaCookieJar(path)
             cookie_jar.load(ignore_discard=True, ignore_expires=True)
             session.cookies.update(cookie_jar)
             session.headers.update({
@@ -38,7 +45,7 @@ def get_cookie_session():
             })
             return session
         except Exception as e:
-            print(f"Error loading cookies.txt: {e}")
+            print(f"Error loading cookies from {path}: {e}")
     return None
 
 ensure_cookies_file()
