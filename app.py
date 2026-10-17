@@ -17,8 +17,9 @@ def ensure_cookies_file():
         raw = os.environ.get('YOUTUBE_COOKIES_TEXT')
         if b64:
             import base64
+            cleaned_b64 = b64.strip().strip('"').strip("'")
             with open('cookies.txt', 'wb') as f:
-                f.write(base64.b64decode(b64))
+                f.write(base64.b64decode(cleaned_b64))
         elif raw:
             with open('cookies.txt', 'w', encoding='utf-8') as f:
                 f.write(raw)
@@ -32,6 +33,9 @@ def get_cookie_session():
             cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
             cookie_jar.load(ignore_discard=True, ignore_expires=True)
             session.cookies.update(cookie_jar)
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
             return session
         except Exception as e:
             print(f"Error loading cookies.txt: {e}")
@@ -76,22 +80,30 @@ def process_video():
         # Fetch transcript
         proxy_username = os.environ.get('WEBSHARE_USERNAME')
         proxy_password = os.environ.get('WEBSHARE_PASSWORD')
-        proxy_config = None
-        if proxy_username and proxy_password:
+        cookie_session = get_cookie_session()
+
+        print(f"[DEBUG] Processing video {video_id}: has_cookies={cookie_session is not None}, has_proxy={bool(proxy_username and proxy_password)}")
+
+        # If cookies are available, use direct authenticated session (prevents free proxy 429 errors)
+        if cookie_session:
+            yt = YouTubeTranscriptApi(http_client=cookie_session)
+        elif proxy_username and proxy_password:
             proxy_config = WebshareProxyConfig(
                 proxy_username=proxy_username,
                 proxy_password=proxy_password
             )
+            yt = YouTubeTranscriptApi(proxy_config=proxy_config)
+        else:
+            yt = YouTubeTranscriptApi()
 
-        cookie_session = get_cookie_session()
         try:
-            yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=cookie_session)
             transcript_list = yt.list(video_id)
         except Exception as e:
+            # Fallback to cookies if not already used
             if cookie_session is None:
                 cookie_session = get_cookie_session()
                 if cookie_session:
-                    yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=cookie_session)
+                    yt = YouTubeTranscriptApi(http_client=cookie_session)
                     transcript_list = yt.list(video_id)
                 else:
                     raise e
