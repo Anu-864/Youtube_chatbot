@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -45,8 +46,17 @@ def process_video():
         
     try:
         # Fetch transcript
+        proxy_username = os.environ.get('WEBSHARE_USERNAME')
+        proxy_password = os.environ.get('WEBSHARE_PASSWORD')
+        proxy_config = None
+        if proxy_username and proxy_password:
+            proxy_config = WebshareProxyConfig(
+                proxy_username=proxy_username,
+                proxy_password=proxy_password
+            )
+
         try:
-            yt = YouTubeTranscriptApi()
+            yt = YouTubeTranscriptApi(proxy_config=proxy_config)
             transcript_list = yt.list(video_id)
         except Exception as e:
             if "blocking requests" in str(e) and os.path.exists('cookies.txt'):
@@ -55,7 +65,7 @@ def process_video():
                 cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
                 cookie_jar.load(ignore_discard=True, ignore_expires=True)
                 session.cookies.update(cookie_jar)
-                yt = YouTubeTranscriptApi(http_client=session)
+                yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=session)
                 transcript_list = yt.list(video_id)
             else:
                 raise e

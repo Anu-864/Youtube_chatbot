@@ -7,5 +7,5 @@ langchain-groq
 langchain-huggingface
 sentence-transformers
 faiss-cpu
-youtube-transcript-api
+youtube-transcript-api>=0.6.2
 gunicorn
