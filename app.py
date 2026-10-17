@@ -89,8 +89,11 @@ def process_video():
             _transcript_obj = next(iter(transcript_list))
 
         _original_lang = _transcript_obj.language_code
-        if _original_lang != 'en':
-            _transcript_obj = _transcript_obj.translate('en')
+        if _original_lang != 'en' and getattr(_transcript_obj, 'is_translatable', False):
+            try:
+                _transcript_obj = _transcript_obj.translate('en')
+            except Exception:
+                pass
 
         fetched = _transcript_obj.fetch()
         transcript = ' '.join(chunk['text'] if isinstance(chunk, dict) else chunk.text for chunk in fetched)
