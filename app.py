@@ -11,16 +11,33 @@ from langchain_groq import ChatGroq
 
 load_dotenv()
 
-# Restore cookies.txt from environment variable on Render if provided
-_cookie_data_b64 = os.environ.get('YOUTUBE_COOKIES_BASE64')
-_cookie_data_text = os.environ.get('YOUTUBE_COOKIES_TEXT')
-if _cookie_data_b64:
-    import base64
-    with open('cookies.txt', 'wb') as f:
-        f.write(base64.b64decode(_cookie_data_b64))
-elif _cookie_data_text:
-    with open('cookies.txt', 'w', encoding='utf-8') as f:
-        f.write(_cookie_data_text)
+def ensure_cookies_file():
+    if not os.path.exists('cookies.txt'):
+        b64 = os.environ.get('YOUTUBE_COOKIES_BASE64')
+        raw = os.environ.get('YOUTUBE_COOKIES_TEXT')
+        if b64:
+            import base64
+            with open('cookies.txt', 'wb') as f:
+                f.write(base64.b64decode(b64))
+        elif raw:
+            with open('cookies.txt', 'w', encoding='utf-8') as f:
+                f.write(raw)
+
+def get_cookie_session():
+    ensure_cookies_file()
+    if os.path.exists('cookies.txt'):
+        try:
+            import requests, http.cookiejar
+            session = requests.Session()
+            cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
+            cookie_jar.load(ignore_discard=True, ignore_expires=True)
+            session.cookies.update(cookie_jar)
+            return session
+        except Exception as e:
+            print(f"Error loading cookies.txt: {e}")
+    return None
+
+ensure_cookies_file()
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -66,18 +83,18 @@ def process_video():
                 proxy_password=proxy_password
             )
 
+        cookie_session = get_cookie_session()
         try:
-            yt = YouTubeTranscriptApi(proxy_config=proxy_config)
+            yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=cookie_session)
             transcript_list = yt.list(video_id)
         except Exception as e:
-            if os.path.exists('cookies.txt'):
-                import requests, http.cookiejar
-                session = requests.Session()
-                cookie_jar = http.cookiejar.MozillaCookieJar('cookies.txt')
-                cookie_jar.load(ignore_discard=True, ignore_expires=True)
-                session.cookies.update(cookie_jar)
-                yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=session)
-                transcript_list = yt.list(video_id)
+            if cookie_session is None:
+                cookie_session = get_cookie_session()
+                if cookie_session:
+                    yt = YouTubeTranscriptApi(proxy_config=proxy_config, http_client=cookie_session)
+                    transcript_list = yt.list(video_id)
+                else:
+                    raise e
             else:
                 raise e
         
@@ -95,7 +112,15 @@ def process_video():
             except Exception:
                 pass
 
-        fetched = _transcript_obj.fetch()
+        try:
+            fetched = _transcript_obj.fetch()
+        except Exception as e:
+            session = get_cookie_session()
+            if session and _transcript_obj._http_client != session:
+                _transcript_obj._http_client = session
+                fetched = _transcript_obj.fetch()
+            else:
+                raise e
         transcript = ' '.join(chunk['text'] if isinstance(chunk, dict) else chunk.text for chunk in fetched)
         
         if not transcript.strip():
